@@ -37,6 +37,8 @@ public class IntegrityVerifierServer {
 				String mensaje = input.readLine();
 				// A continuación habría que calcular el mac del MensajeEnviado que podría ser
 				String macMensajeEnviado = input.readLine();
+				//System.out.println("message Enviado: "+mensaje);
+				//System.out.println("Own calculated mac: "+macCalculator.calculate(mensaje));
 				// mac del MensajeCalculado
 				if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
 					output.println("Mensaje	enviado	integro	");

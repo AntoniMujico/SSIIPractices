@@ -21,6 +21,7 @@ public class IntegrityVerifierClient {
 			output.println(messageToSend);
 			// Habría que calcular el correspondiente MAC con la clave compartida por
 			// servidor/cliente
+			//System.out.println("Client mac: "+macCalculator.calculate(messageToSend));
 			output.println(macCalculator.calculate(messageToSend));
 			// Importante para que el mensaje se envíe
 			output.flush();
