@@ -10,6 +10,7 @@ import javax.net.ServerSocketFactory;
 
 public class IntegrityVerifierServer {
 
+	private static MACCalculator macCalculator;
 	private ServerSocket serverSocket;
 
 	// Constructor del Servidor
@@ -37,7 +38,7 @@ public class IntegrityVerifierServer {
 				// A continuación habría que calcular el mac del MensajeEnviado que podría ser
 				String macMensajeEnviado = input.readLine();
 				// mac del MensajeCalculado
-				if (macMensajeEnviado.equals("macdelMensajeCalculado")) {
+				if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
 					output.println("Mensaje	enviado	integro	");
 				} else {
 					output.println("Mensaje	enviado	no	integro.");
@@ -55,6 +56,7 @@ public class IntegrityVerifierServer {
 
 	// Programa principal
 	public static void main(String args[]) throws Exception {
+		macCalculator = new MACCalculator(args[0],args[1]);
 		IntegrityVerifierServer server = new IntegrityVerifierServer();
 		server.runServer();
 	}

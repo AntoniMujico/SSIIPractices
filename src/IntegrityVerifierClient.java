@@ -1,10 +1,14 @@
 import java.io.*;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 import javax.swing.*;
 import javax.net.*;
 
 public class IntegrityVerifierClient {
+	private static MACCalculator macCalculator;
+
 	// Constructor que abre una conexión Socket para enviar mensaje/MAC al servidor
 	public IntegrityVerifierClient() {
 		try {
@@ -12,12 +16,12 @@ public class IntegrityVerifierClient {
 			Socket socket = (Socket) socketFactory.createSocket("localhost", 7070);
 			// Crea un PrintWriter para enviar mensaje/MAC al servidor
 			PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-			String userName = JOptionPane.showInputDialog(null, "Introduzca	su	mensaje:");
+			String messageToSend = JOptionPane.showInputDialog(null, "Introduzca	su	mensaje:");
 			// Envío del mensaje al servidor
-			output.println("mensaje");
+			output.println(messageToSend);
 			// Habría que calcular el correspondiente MAC con la clave compartida por
 			// servidor/cliente
-			output.println("macdelMensaje");
+			output.println(macCalculator.calculate(messageToSend));
 			// Importante para que el mensaje se envíe
 			output.flush();
 
@@ -44,7 +48,9 @@ public class IntegrityVerifierClient {
 	}
 
 	// ejecución del cliente de verificación de la integridad
-	public static void main(String args[]) {
+	public static void main(String args[]) throws InvalidKeyException, NoSuchAlgorithmException {
+		//message = args[1];
+		macCalculator = new MACCalculator(args[0],args[1]);
 		new IntegrityVerifierClient();
 	}
 }
