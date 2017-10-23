@@ -12,6 +12,7 @@ public class IntegrityVerifierServer {
 
 	private static MACCalculator macCalculator;
 	private ServerSocket serverSocket;
+	private static int seqNumber = 0;
 
 	// Constructor del Servidor
 	public IntegrityVerifierServer() throws Exception {
@@ -35,15 +36,23 @@ public class IntegrityVerifierServer {
 				PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 				// Se lee del cliente el mensaje y el macdelMensajeEnviado
 				String mensaje = input.readLine();
+
+				int seqIndx = mensaje.indexOf("SEQNUM=") + 7;
+				int seqNum = Integer.parseInt(mensaje.substring(seqIndx));
+				seqNumber++;
 				// A continuación habría que calcular el mac del MensajeEnviado que podría ser
 				String macMensajeEnviado = input.readLine();
-				//System.out.println("message Enviado: "+mensaje);
-				//System.out.println("Own calculated mac: "+macCalculator.calculate(mensaje));
+				// System.out.println("message Enviado: "+mensaje);
+				// System.out.println("Own calculated mac: "+macCalculator.calculate(mensaje));
 				// mac del MensajeCalculado
-				if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
-					output.println("Mensaje	enviado	integro	");
+				if (seqNum == seqNumber) {
+					if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
+						output.println("Mensaje	enviado	integro	");
+					} else {
+						output.println("Mensaje	enviado	no	integro.");
+					}
 				} else {
-					output.println("Mensaje	enviado	no	integro.");
+					output.println("Invalid Sequence Number");
 				}
 
 				output.close();
@@ -53,12 +62,13 @@ public class IntegrityVerifierServer {
 				ioException.printStackTrace();
 			}
 		}
+		
 
 	}
 
 	// Programa principal
 	public static void main(String args[]) throws Exception {
-		macCalculator = new MACCalculator(args[0],args[1]);
+		macCalculator = new MACCalculator(args[0], args[1]);
 		IntegrityVerifierServer server = new IntegrityVerifierServer();
 		server.runServer();
 	}

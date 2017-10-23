@@ -8,9 +8,10 @@ import javax.net.*;
 
 public class IntegrityVerifierClient {
 	private static MACCalculator macCalculator;
+	private static int seqNumber = 0;
 
 	// Constructor que abre una conexión Socket para enviar mensaje/MAC al servidor
-	public IntegrityVerifierClient() {
+	public IntegrityVerifierClient() throws InterruptedException {
 		try {
 			SocketFactory socketFactory = (SocketFactory) SocketFactory.getDefault();
 			Socket socket = (Socket) socketFactory.createSocket("localhost", 7070);
@@ -18,12 +19,19 @@ public class IntegrityVerifierClient {
 			PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 			String messageToSend = JOptionPane.showInputDialog(null, "Introduzca	su	mensaje:");
 			// Envío del mensaje al servidor
+			seqNumber++;
+			messageToSend += "SEQNUM="+seqNumber;
 			output.println(messageToSend);
 			// Habría que calcular el correspondiente MAC con la clave compartida por
 			// servidor/cliente
 			//System.out.println("Client mac: "+macCalculator.calculate(messageToSend));
 			output.println(macCalculator.calculate(messageToSend));
 			// Importante para que el mensaje se envíe
+			output.flush();
+			//Second message
+			output.println(messageToSend);
+			output.println(macCalculator.calculate(messageToSend));
+			System.out.println("Sending again");
 			output.flush();
 
 			// Crea un objeto BufferedReader para leer la respuesta del servidor
@@ -49,7 +57,7 @@ public class IntegrityVerifierClient {
 	}
 
 	// ejecución del cliente de verificación de la integridad
-	public static void main(String args[]) throws InvalidKeyException, NoSuchAlgorithmException {
+	public static void main(String args[]) throws InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 		//message = args[1];
 		macCalculator = new MACCalculator(args[0],args[1]);
 		new IntegrityVerifierClient();

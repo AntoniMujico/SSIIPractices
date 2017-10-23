@@ -1,5 +1,6 @@
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -10,7 +11,6 @@ public class MACCalculator {
 	String clavDebug;
 	
 	public MACCalculator(String algoName,String clav) throws NoSuchAlgorithmException, InvalidKeyException {
-		System.out.println(clav);
 		mac = Mac.getInstance(algoName);
 		clavDebug  = clav;
 		byte[] decodedKey     =  clav.getBytes();
@@ -21,8 +21,7 @@ public class MACCalculator {
 	public String calculate(String message) {
 		mac.update(message.getBytes());
 		byte[] res = mac.doFinal();
-		System.out.println("Message: "+message+" MAC result: "+res.toString()+" SecretKey: "+clavDebug);
-		return res.toString();
+		return Arrays.toString(res);
 	}
 
 }
