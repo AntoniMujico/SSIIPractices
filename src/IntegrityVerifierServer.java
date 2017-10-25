@@ -8,6 +8,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ServerSocketFactory;
 
@@ -21,14 +24,16 @@ public class IntegrityVerifierServer {
 
 	private static MACCalculator macCalculator;
 	private ServerSocket serverSocket;
-	private static int seqNumber = 0;
-	private static int IntegrityMessageCount = 0;
-	private static int TotalMessageCount = 0;
-	private static ArrayList<Integer> dailyIntegrity = new ArrayList<Integer>();
-	private static ArrayList<Integer> dailyReceived = new ArrayList<Integer>();
+	private static double IntegrityMessageCount = 0;
+	private static double TotalMessageCount = 0;
+	private static ArrayList<Double> dailyIntegrity = new ArrayList<Double>();
+	private static ArrayList<Double> dailyReceived = new ArrayList<Double>();
 	static Calendar cal = Calendar.getInstance();
 	static int currentMonth = cal.get(Calendar.MONTH);
 	static int currentDate = cal.get(Calendar.DATE);
+	static boolean clientAccepted = false;
+	static ArrayList<String> seqNumberStore = new ArrayList<String>();
+	//static int count = 0; // DEBUG
 
 	// Constructor del Servidor
 	public IntegrityVerifierServer() throws Exception {
@@ -38,73 +43,59 @@ public class IntegrityVerifierServer {
 		serverSocket = (ServerSocket) socketFactory.createServerSocket(7070);
 	}
 
-	// Ejecución del servidor para escuchar peticiones de los clientes
-
-	private void runServer() throws IOException {
-		PrintWriter pw = new PrintWriter(System.getProperty("user.dir") + "/log.txt");
+	private void runServer() throws IOException, InterruptedException {
 		while (true) {
-			// Espera las peticiones del cliente para comprobar mensaje/MAC
-			if (cal.get(Calendar.DATE) != currentDate) {
-				currentDate = cal.get(Calendar.DATE);
-				dailyIntegrity.add(IntegrityMessageCount);
-				IntegrityMessageCount = 0;
-				dailyReceived.add(TotalMessageCount);
-				TotalMessageCount = 0;
-			}
-			if (cal.get(Calendar.MONTH) != currentMonth) {
-				currentMonth = cal.get(Calendar.MONTH);
-				generateMonthlyReport();
-				dailyIntegrity.clear();
-				dailyReceived.clear();
-			}
-			try {
-				System.err.println("Esperando	conexiones	de	clientes...");
-				Socket socket = (Socket) serverSocket.accept();
-				// Abre un BufferedReader para leer los datos del cliente
-				BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				// Abre un PrintWriter para enviar datos al cliente
-				PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
-				// Se lee del cliente el mensaje y el macdelMensajeEnviado
-				String mensaje = input.readLine();
-
-				int seqIndx = mensaje.indexOf("SEQNUM=") + 7;
-				int seqNum = Integer.parseInt(mensaje.substring(seqIndx));
-				seqNumber++;
-				// A continuación habría que calcular el mac del MensajeEnviado que podría ser
-				String macMensajeEnviado = input.readLine();
-				// System.out.println("message Enviado: "+mensaje);
-				// System.out.println("Own calculated mac: "+macCalculator.calculate(mensaje));
-				// mac del MensajeCalculado
-				TotalMessageCount++;
-				if (seqNum == seqNumber) {
-					if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
-						output.println("Mensaje	enviado	integro	");
-						IntegrityMessageCount++;
+			System.err.println("Esperando	conexiones	de	clientes...");
+			Socket socket = serverSocket.accept();
+			BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			PrintWriter output = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+			PrintWriter pw = new PrintWriter(System.getProperty("user.dir") + "/log.txt");
+			while (true) {
+				try {
+					String mensaje = input.readLine();
+					String macMensajeEnviado = input.readLine();
+					int seqIndx = mensaje.indexOf("SEQNUM=") + 7;
+					String seqNum = mensaje.substring(seqIndx);
+					TotalMessageCount++;
+					if (!seqNumberStore.contains(seqNum)) {
+						seqNumberStore.add(seqNum);
+						if (macMensajeEnviado.equals(macCalculator.calculate(mensaje))) {
+							output.println("Mensaje	enviado	integro	");
+							IntegrityMessageCount++;
+						} else {
+							output.println("Mensaje	enviado	no	integro.");
+							pw.write("Mensaje enviado no integro. Recibido MAC=" + macMensajeEnviado + " pero calculado"
+									+ macCalculator.calculate(mensaje) + "\n");
+						}
 					} else {
-						output.println("Mensaje	enviado	no	integro.");
-						pw.write("Mensaje enviado no integro. Recibido MAC=" + macMensajeEnviado + " pero calculado"
-								+ macCalculator.calculate(mensaje));
+						output.println("Invalid Sequence Number");
+						pw.write("Numero de secuencia no valido. Recibido: " + seqNum + "\n");
 					}
-				} else {
-					output.println("Invalid Sequence Number");
-					pw.write("Numero de secuencia no valido. Esperado: " + seqNumber + " pero recibido: " + seqNum);
+					output.flush();
+					Thread.sleep(1);
+				} catch (Exception e) {
+					input.close();
+					output.close();
+					socket.close();
+					pw.close();
+					break;
 				}
-
-				output.close();
-				input.close();
-				socket.close();
-			} catch (IOException ioException) {
-				ioException.printStackTrace();
-				pw.close();
 			}
+			Thread.sleep(1);
+
 		}
 
 	}
 
-	private void generateMonthlyReport() throws IOException {
+	public static void generateMonthlyReport() throws IOException {
 		DefaultCategoryDataset line_chart_dataset = new DefaultCategoryDataset();
 		for (int i = 0; i < dailyIntegrity.size(); i++) {
-			line_chart_dataset.addValue(dailyIntegrity.get(i) / dailyReceived.get(i), "Ratio", "" + i);
+			System.out.println("add Value " + dailyIntegrity.get(i) + " " + dailyReceived.get(i));
+			if (dailyReceived.get(i) == 0.0) {
+				line_chart_dataset.addValue(1, "Ratio", "" + i);
+			} else {
+				line_chart_dataset.addValue(dailyIntegrity.get(i) / dailyReceived.get(i), "Ratio", "" + i);
+			}
 		}
 
 		JFreeChart lineChartObject = ChartFactory.createLineChart("Summary ", "Day", "Integrity Ratio",
@@ -112,9 +103,29 @@ public class IntegrityVerifierServer {
 
 		int width = 640;
 		int height = 480;
-		File lineChart = new File(System.getProperty("user.dir") + "/report/Monthly Integrity Chart "
-				+ cal.get(Calendar.MONTH) + "-" + cal.get(Calendar.YEAR) + ".jpeg");
+		File lineChart = new File(System.getProperty("user.dir") + "/Monthly Integrity Chart" + cal.get(Calendar.MONTH)
+				+ "-" + cal.get(Calendar.YEAR) + ".jpeg");
 		ChartUtilities.saveChartAsJPEG(lineChart, lineChartObject, width, height);
+
+	}
+
+	public static void collectDailyData() {
+		dailyIntegrity.add(IntegrityMessageCount);
+		IntegrityMessageCount = 0.0;
+		dailyReceived.add(TotalMessageCount);
+		TotalMessageCount = 0.0;
+		//count++;//DEBUG!
+		//if (count == 5) { //DEBUG!
+		  if (cal.get(Calendar.MONTH) != currentMonth) {
+			currentMonth = cal.get(Calendar.MONTH);
+			try {
+				generateMonthlyReport();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			dailyIntegrity.clear();
+			dailyReceived.clear();
+		}
 
 	}
 
@@ -122,6 +133,11 @@ public class IntegrityVerifierServer {
 	public static void main(String args[]) throws Exception {
 		macCalculator = new MACCalculator(args[0], args[1]);
 		IntegrityVerifierServer server = new IntegrityVerifierServer();
+		ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5);
+		scheduler.scheduleAtFixedRate(() -> {
+			IntegrityVerifierServer.collectDailyData();
+		}, 0, 5, TimeUnit.SECONDS);
 		server.runServer();
+
 	}
 }
